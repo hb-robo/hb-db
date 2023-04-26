@@ -1,0 +1,1 @@
+This is a WIP personal site using Node.js, EJS, Express, and Postgres. My existing website was built from hand entirely in HTML5/CSS3, but I have learned much since then and want a more robust structure to show off more.
