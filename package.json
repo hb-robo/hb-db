@@ -15,6 +15,8 @@
     "node-cron": "^3.0.2",
     "node-postgres": "^0.6.2",
     "nodemon": "^2.0.22",
-    "pg": "^8.10.0"
+    "pg": "^8.10.0",
+    "pg-format": "^1.0.4",
+    "steam-js-api": "^1.1.0"
   }
 }
