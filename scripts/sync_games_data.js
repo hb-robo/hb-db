@@ -108,28 +108,45 @@ async function syncSteamData() {
 
     // Add all data for newly discovered games.
     data_to_sync.newGames.forEach(game => async function() {
+        // grab game version
+        let game_schema = await axios.get(`${STEAM_GETGAMESCHEMA_URL}${game.appid}`).catch(console.error);
+        let game_version = game_schema.game.gameVersion
+        // grab achievement progress
         let achievement_data = await axios(`${STEAM_GETPLAYERACHIEVEMENTS_URL}${game.appid}`).catch(console.error);
-        let updateQuery;
-
         let has_achievements = achievement_data.playerstats.hasOwnProperty()
+        let achievement_list = achievement_data.playerstats.achievements
+        let achievement_count = achievement_list.length
+        let unlocked_achievement_count = achievement_list.filter(cheev => cheev.achieved === 1).length
+      
+        let insert_query;
         if (has_achievements) {
-            let unlocked_achievement_count = achievement_data
-            let achievement_count
+            insert_query = format(
+                `INSERT INTO 
+                steam_owned_games(
+                    appid, name, game_version, 
+                    rtime_last_played, playtime, box_art_url,
+                    has_achievements, achievement_count, unlocked_achievement_count)
+                VALUES (%L, %L, %L, %L, %L, %L)`,
+                row.appid, row.name, game_version,
+                row.rtime_last_played, row.playtime_forever,
+                `https://steamcdn-a.akamaihd.net/steam/apps/${row.appid}/library_600x900_2x.jpg`,
+                row.hasOwnProperty('has_community_visible_stats'),
+                achievement_count, unlocked_achievement_count
+            );
+        } else {
+            insert_query = format(
+                `INSERT INTO 
+                steam_owned_games(
+                    appid, name, game_version, 
+                    rtime_last_played, playtime, box_art_url,
+                    has_achievements)
+                VALUES (%L, %L, %L, %L, %L, %L)`,
+                row.appid, row.name, game_version,
+                row.rtime_last_played, row.playtime_forever,
+                `https://steamcdn-a.akamaihd.net/steam/apps/${row.appid}/library_600x900_2x.jpg`,
+                row.hasOwnProperty('has_community_visible_stats')
+            );
         }
-
-        let insert_query = format(
-            `INSERT INTO 
-            steam_owned_games(
-                appid, name, rtime_last_played, 
-                box_art_url, has_stats)
-            VALUES (%L, %L, %L, %L, %L, %L)`,
-            row.appid,
-            row.name,
-            row.rtime_last_played,
-            `https://steamcdn-a.akamaihd.net/steam/apps/${row.appid}/library_600x900_2x.jpg`,
-            row.hasOwnProperty('has_community_visible_stats')
-        );
-
         await pgdb.query(insert_query);
     });
 
