@@ -1,10 +1,13 @@
-const axios = require('axios');
-const format = require('pg-format');
+//  POSTGRES TOOLS
 const pgdb = require('./../pgdb');
+const format = require('pg-format');
+//  API TOOLS
+const axios = require('axios');
+const steam = require('steam-js-api');
 
-// Steam API variables
+
+//==================== Steam API variables ====================
 const STEAM_API_KEY = 'B927A7E2DB6B29A3650B69AA54DB428C';
-const STEAM_DOMAIN_NAME = 'hb-robo';
 const STEAM_USER_ID = '76561198038902641';
 const STEAM_GETOWNEDGAMES_URL = `` +
     `https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/` +
@@ -13,75 +16,115 @@ const STEAM_GETOWNEDGAMES_URL = `` +
     `&format=json` + 
     `&include_appinfo=1` + // adds game title and artwork URL extension to return
     `&include_played_free_games=1`; // includes F2P games that I have opened at least once
+const STEAM_GETGAMESCHEMA_URL = `` +
+    `https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/` +
+    `?key=${STEAM_API_KEY}`
+    `&appid=`; // will be appended later
+const STEAM_GETPLAYERACHIEVEMENTS_URL = `` +
+    `http://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v0001/` +
+    `?key=${STEAM_API_KEY}`
+    `&steamid=${STEAM_USER_ID}` +
+    `&appid=`; // will be appended later
 
-
-//  Function to update the Steam data in hb-db with as few queries and API calls as possible.
-//  Things that can be checked with one GetOwnedGames call:
-//      1) If a game has been played since last sync
-//      2) If there are new games in the library
-//  Things that has to be checked with individual GetGameSchema calls: <=== by far most taxing element here
-//      3) If existing games in the library have had version updates
-//          -> if so, check for delta in achievement_count and unlocked_achievements
-
-//  1) Get list of appids in database
-//  2) Check those games for updates
-//      a) if new version, check achievement_count and unlocked_achievement_count
-//  3) Check list of owned games for new games or recently played games
-//      a) if new, add to DB
-//      a) if recently played, update rtime_last_played and achievement progress
-
+/**
+ * Hits the Steam API to update steam data in hb-db as few calls as posssible.
+ * 1) Checks all owned games for version and achievement count changes.
+ * 2) Checks all recently played games for achievement progress changes.
+ * 3) Adds all data for games not in database. 
+ **/
 async function syncSteamData() {
-    // Grab list of game appids in Steam library to check for new games later.
-    let appid_list_raw = await pgdb.query(`
-        SELECT DISTINCT appid
+    // Grab list of games and versions in Steam library.
+    let game_list_raw = await pgdb.query(`
+        SELECT appid, gameVersion
         FROM steam_owned_games;
     `);
-    const APPID_LIST = appid_list_raw.rows.map(row => row.appid);
+    const OWNED_GAMES = game_list_raw.rows;
+
+    // Check for new game versions among current library and changes in achievement_count.
+    OWNED_GAMES.forEach(game => async function() {
+        let game_schema = await axios.get(`${STEAM_GETGAMESCHEMA_URL}${game.appid}`).catch(console.error);
+        if (game_schema.game.gameVersion != game.gameVersion) {
+            updateQuery = format(
+                `UPDATE steam_owned_games
+                SET gameVersion = %L,
+                    achievement_count = %L
+                WHERE appid = %L;`,
+                game_schema.game.gameVersion,
+                game_schema.game.achievements.length,
+                game.appid
+            )
+            await pgdb.query(updateQuery).catch(console.error);
+        }
+    });
 
     // Grab maximum rtime_last_played value so we don't add/update data unnecessarily.
-    // rtime_last_played is Unix time, so we coalesce to 0 if query returns null.
     let max_rtime_raw = await pgdb.query(`
         SELECT COALESCE(MAX(rtime_last_played),to_timestamp(0)) AS rtime_last_played
         FROM steam_owned_games;
-    `);
+    `); // rtime_last_played is in Unix time, so we coalesce to 0 if query returns null.
     const MAX_RTIME = new Date(max_rtime_raw.rows[0].rtime_last_played);
     const MAX_RTIME_UNIX = Math.floor(MAX_RTIME.getTime()/1000);
+
 
     // Return JSON object of all games that either:
     //    1) Have a new appid not yet in DB (new purchase), or
     //    2) Have a rtime_last_played more recent than the max in DB (new playtime)
-    const new_game_data = axios.get(STEAM_GETOWNEDGAMES_URL)
-        .then(response => {
-            let games = response.data.response.games;
-            let filteredGames = games.filter(
-                game => !APPID_LIST.includes(game.appid) ||
-                        game.rtime_last_played > MAX_RTIME_UNIX
-            );
-            console.log(filteredGames);
-            return filteredGames;
-        })
-        .catch(error => {
-            console.log(error);
-        });
-    
-    new_game_data.forEach(row => {
-        const STEAM_GAMESCHEMA_URL = `https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?key=${STEAM_API_KEY}&appid=${row.appid}`;
-        let game_schema = axios.get(STEAM_GAMESCHEMA_URL)
-                            .catch(error => {console.log(error)});
-        has_achievements = game_schema.data.response.game.availableStats.hasOwnProperty('achievements')
-        if (has_achievements) {
+    const data_to_sync = await axios(STEAM_GETOWNEDGAMES_URL).then( result => {
+        let games = result.data.games;
+        
+        let recentGames = games.filter(game => game.rtime_last_played > MAX_RTIME_UNIX && APPID_LIST.includes(game.appid));
+        let newGames = games.filter(game => !APPID_LIST.includes(game.appid));
 
+        console.log(newGames);
+        return {recentGames, newGames};
+    }).catch(console.error);
+
+    // Update recently played games to check for progress made.
+    data_to_sync.recentGames.forEach(game => async function() {
+        let achievement_data = await axios(`${STEAM_GETPLAYERACHIEVEMENTS_URL}${game.appid}`).catch(console.error);
+        let updateQuery;
+        if (achievement_data.playerstats.hasOwnProperty('error')) { // game does not have achievement support
+            updateQuery = format(`
+                UPDATE steam_owned_games
+                SET rtime_last_played = %L,
+                WHERE appid = %L`,
+                game.rtime_last_played,
+                appid
+            );
+        } else {
+            unlocked_achievement_count = achievement_data.playerstats.achievements.filter(cheev => cheev.achieved === 1).length;
+            updateQuery = format(`
+                UPDATE steam_owned_games
+                SET rtime_last_played = %L,
+                    achievements_unlocked = %L
+                WHERE appid = %L`,
+                game.rtime_last_played,
+                unlocked_achievement_count,
+                appid
+            );
+        }
+        await pgdb.query(updateQuery).catch(console.error);
+    });
+
+    // Add all data for newly discovered games.
+    data_to_sync.newGames.forEach(game => async function() {
+        let achievement_data = await axios(`${STEAM_GETPLAYERACHIEVEMENTS_URL}${game.appid}`).catch(console.error);
+        let updateQuery;
+
+        let has_achievements = achievement_data.playerstats.hasOwnProperty()
+        if (has_achievements) {
+            let unlocked_achievement_count = achievement_data
+            let achievement_count
         }
 
         let insert_query = format(
             `INSERT INTO 
             steam_owned_games(
-                appid, name, playtime_forever, rtime_last_played, 
+                appid, name, rtime_last_played, 
                 box_art_url, has_stats)
             VALUES (%L, %L, %L, %L, %L, %L)`,
             row.appid,
             row.name,
-            row.playtime_forever,
             row.rtime_last_played,
             `https://steamcdn-a.akamaihd.net/steam/apps/${row.appid}/library_600x900_2x.jpg`,
             row.hasOwnProperty('has_community_visible_stats')
@@ -89,14 +132,23 @@ async function syncSteamData() {
 
         await pgdb.query(insert_query);
     });
-    
 
-
-    
 }
+
+
+
+//==================== RA API variables ====================
+
 
 async function syncRAData() {
 
 }
 
-module.exports = {syncSteamData, syncRAData};
+async function syncGamesData() {
+    await Promise.allSettled([
+        syncSteamData(),
+        syncRAData()
+    ]);
+}
+
+module.exports = {syncGamesData};
