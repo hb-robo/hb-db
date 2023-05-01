@@ -76,11 +76,11 @@ async function syncSteamData() {
     // Start building insert query for steam_achievements table.
     let achievementInsertQueryHeader = 
         `INSERT INTO steam_achievements (
-            api_name, display_name, icon_url, description,
+            appid, api_name, display_name, icon_url, description,
             achieved, unlock_time, global_unlock_rate)
         VALUES `;
     var achievementRowsToInsert = [];
-    var achievementsInsertArgs;
+    var achievementsInsertArgs = [];
     
 
     // Handle each game based on what data needs to be updated or added.
@@ -140,7 +140,8 @@ async function syncSteamData() {
                 let totalNumCheevs = playerAchievementData.playerstats.achievements.length;
 
                 rowInsertArgs = [game.rtime_last_played, game.played_forever, true, numCheevsUnlocked, totalNumCheevs];
-                gamesInsertArgs = gamesInsertArgs.concat(rowInsertArgs);
+                
+                
             } else {
                 insertData = `('${game.appid}', '${game.name}',
                                 '${appDetails[game.appid].data.developers}',
