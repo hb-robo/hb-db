@@ -63,14 +63,25 @@ async function syncSteamData() {
     const MAX_RTIME = new Date(max_rtime_raw.rows[0].rtime_last_played);
     const MAX_RTIME_UNIX = Math.floor(MAX_RTIME.getTime()/1000);
 
+    // Start building insert query for steam_games table.
     let gameInsertQueryHeader = 
         `INSERT INTO steam_games (
-            service, platform, appid, game_title, developers, publishers, 
+            appid, game_title, developers, publishers, 
             game_version, rtime_last_played, playtime, box_art_url,
             has_achievements, unlocked_achievement_count, achievement_count)
         VALUES `;
     var gameRowsToInsert = [];
-    var insertArgs = [];
+    var gamesInsertArgs = [];
+    
+    // Start building insert query for steam_achievements table.
+    let achievementInsertQueryHeader = 
+        `INSERT INTO steam_achievements (
+            api_name, display_name, icon_url, description,
+            achieved, unlock_time, global_unlock_rate)
+        VALUES `;
+    var achievementRowsToInsert = [];
+    var achievementsInsertArgs;
+    
 
     // Handle each game based on what data needs to be updated or added.
     for (let i = 0; i < apiLibrary.length; i++) {
@@ -105,11 +116,13 @@ async function syncSteamData() {
             setTimeout(() => {}, 1000);
         }
 
+        // Handle 
         if(isNew) {
             let appDetails;
             appDetails = await axios.get(`${STEAM_GETAPPDETAILS_URL}${game.appid}`).catch(console.error);
+            setTimeout(() => {}, 1000);
 
-            /** service, platform, appid, game_title, developers, publishers, 
+            /** appid, game_title, developers, publishers, 
             game_version, rtime_last_played, playtime, box_art_url,
             has_achievements, unlocked_achievement_count, achievement_count) */
             let comma = (gameRowsToInsert.length > 0) ? ',' : '';
@@ -117,28 +130,28 @@ async function syncSteamData() {
             let insertData;
             let rowInsertArgs;
             if(hasAchievements) {
-                insertData = `${comma}('Steam', 'PC', '${game.appid}', '${game.name}',
+                insertData = `('${game.appid}', '${game.name}',
                                 '${appDetails[game.appid].data.developers}',
                                 '${appDetails[game.appid].data.publishers}',
                                 '${gameSchema.game.gameVersion}', %L, %L, 
-                                ${`https://steamcdn-a.akamaihd.net/steam/apps/${game.appid}/library_600x900_2x.jpg`},
+                                '${`https://steamcdn-a.akamaihd.net/steam/apps/${game.appid}/library_600x900_2x.jpg`}',
                                 %L, %L, %L)`
                 let numCheevsUnlocked = playerAchievementData.playerstats.achievements.filter(cheev => cheev.achieved = 1).length;
                 let totalNumCheevs = playerAchievementData.playerstats.achievements.length;
 
-                rowInsertArgs = [game.rtime_last_played, game.played_forever,true, numCheevsUnlocked, totalNumCheevs];
-                insertArgs = insertArgs.concat(rowInsertArgs);
+                rowInsertArgs = [game.rtime_last_played, game.played_forever, true, numCheevsUnlocked, totalNumCheevs];
+                gamesInsertArgs = gamesInsertArgs.concat(rowInsertArgs);
             } else {
-                insertData = `${comma}('Steam', 'PC', ${game.appid}, ${game.name},
-                                ${appDetails[game.appid].data.developers},
-                                ${appDetails[game.appid].data.publishers},
+                insertData = `('${game.appid}', '${game.name}',
+                                '${appDetails[game.appid].data.developers}',
+                                '${appDetails[game.appid].data.publishers}',
                                 %L, %L, %L, 
-                                ${`https://steamcdn-a.akamaihd.net/steam/apps/${game.appid}/library_600x900_2x.jpg`},
+                                '${`https://steamcdn-a.akamaihd.net/steam/apps/${game.appid}/library_600x900_2x.jpg`}',
                                 %L, %L, %L)`
-                rowInsertArgs = [null, game.rtime_last_played, game.played_forever,false, null, null];
+                rowInsertArgs = [null, game.rtime_last_played, game.played_forever, false, null, null];
             }
             gameRowsToInsert.push(insertData);
-            insertArgs = insertArgs.concat(rowInsertArgs);
+            gamesInsertArgs = gamesInsertArgs.concat(rowInsertArgs);
         }
         else {
             let dbData = (!isNew) ? dbLibrary.find(row => row.appid === game.appid) : null;
@@ -151,13 +164,17 @@ async function syncSteamData() {
 
     // Insert new game data if there is any
     if (gameRowsToInsert.length > 0) {
-        gameInsertQueryString = `${gameInsertQueryHeader}${gameRowsToInsert.join()}`;
-        let gameInsertQuery = format(gameInsertQuery, ...insertArgs);
+        let gameInsertQueryString = `${gameInsertQueryHeader}${gameRowsToInsert.join()}`;
+        let gameInsertQuery = format(gameInsertQueryString, ...gamesInsertArgs);
         await pgdb.query(gameInsertQuery).catch(console.error);
     }
 
     // Insert new achievement data if there is any
-    
+    if (achievementRowsToInsert.length > 0) {
+        let achievementInsertQueryString = `${achievementInsertQueryHeader}${achievementRowsToInsert.join()}`;
+        let achievementInsertQuery = format(achievementInsertQueryString, ...achievementsInsertArgs);
+        await pdgb.query(achievementInsertQuery).catch(console.error);
+    }
 }
 
 
