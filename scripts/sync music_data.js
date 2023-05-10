@@ -21,7 +21,47 @@ const LASTFM_GETRECENTTRACKS_URL = `${LASTFM_URL_HEAD}?method=user.getrecenttrac
 //    3) Regenerate weekly listen charts
 // Not sure if getArtists will be useful, but would save on scrobble count calculation. 
 // Will probably just make counts table for artists, albums, etc.
-async function syncLastFMData() {}
+async function syncLastFMData() {
+    const userInfo = await axios(LASTFM_GETUSERINFO_URL).then( result => {
+        console.log(result.data.user);
+        return result.data.user;
+    }).catch(console.error);
+    setTimeout(() => {}, 1000);
+    
+    let userInDB_raw = await pgdb.query(`SELECT 
+                     CASE WHEN EXISTS (SELECT * FROM lastfm_user) THEN 1 
+                     ELSE 0 END`).catch(console.error);
+    let userInDB = userInDB_raw.rows[0].case;
+    
+    var userInsertQuery;
+    switch (userInDB) {
+        case true:
+            userInsertQuery = format(
+                `UPDATE lastfm_user SET 
+                    (image, age, subscriber, playcount, playlists, bootstrap) = (%L, %L, %L, %L, %L, %L)
+                    WHERE name = 'hb-robo'`,
+                userInfo.image, userInfo.age, userInfo.subscriber,
+                userInfo.playcount, userInfo.playlists, userInfo.bootstrap);
+            break;
+        case false:
+            userInsertQuery = format(
+                `INSERT INTO lastfm_user (
+                    id, name, realname, url, image, country, age, gender, 
+                    subscriber, playcount, playlists, bootstrap, registered)
+                VALUES (
+                    %L, %L, %L, %L, %L, %L, %L, %L,
+                    %L, %L, %L, %L, %L)`,
+                userInfo.id, userInfo.name, userInfo.realname, userinfo.url, userInfo.image,
+                userInfo.country, userInfo.age, userInfo.gender, userInfo.subscriber,
+                userInfo.playcount, userInfo.playlists, userInfo.bootstrap, userInfo.registered);
+            break;
+    }
+    await pgdb.query(userInsertQuery).catch(console.error);
+
+    
+   
+
+}
 
 async function syncMusicData() {
     await Promise.allSettled([
