@@ -1,6 +1,6 @@
-const { Client } = require('pg');
+const { Pool } = require('pg');
 
-const client = new Client({
+const pool = new Pool({
   user: 'postgres',
   host: 'containers-us-west-139.railway.app',
   database: 'railway',
@@ -8,8 +8,8 @@ const client = new Client({
   port: 6371,
 });
 
-client.connect()
+pool.connect()
       .then(() => console.log('Connected to hb-db'))
       .catch((err) => console.error('Connection error', err.stack));
 
-module.exports = client;
+module.exports = pool;
