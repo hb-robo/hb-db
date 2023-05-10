@@ -1,15 +1,19 @@
+//  POSTGRES TOOLS
+const pgdb = require('./../pgdb');
+const format = require('pg-format');
+//  API TOOLS
+const axios = require('axios');
+const steam = require('steam-js-api');
 
-// Last.fm connection config
+
+//==================== Steam API variables ====================
 const LASTFM_API_KEY = 'de3a50d3d65ff718b46b4518d48f241a';
 const LASTFM_SECRET = 'd3ddf92039d8195e7d2024e1df4066db';
 const LASTFM_USER = 'hb-robo';
 
-// Last.fm API calls
 const LASTFM_URL_HEAD = `http://ws.audioscrobbler.com/2.0/`;
 const LASTFM_URL_FOOTER = `&user=${LASTFM_USER}&api_key=${LASTFM_API_KEY}&format=json`;
 const LASTFM_GETUSERINFO_URL = `${LASTFM_URL_HEAD}?method=user.getinfo${LASTFM_URL_FOOTER}`;
-// album charts need date ranges in Unix time:
-//     e.g. '&from=3109328109&to=4732843289"
 const LASTFM_GETALBUMCHART_URL = `${LASTFM_URL_HEAD}?method=user.getweeklyalbumchart${LASTFM_URL_FOOTER}`;
 const LASTFM_GETARTISTS_URL = `${LASTFM_URL_HEAD}?method=library.getartists&limit=10000${LASTFM_URL_FOOTER}`;
 // VERY IMPORTANT: recenttracks supports &from=".."&to="..", do not pull full history every time
@@ -37,9 +41,11 @@ async function syncLastFMUserInfo() {
         userInsertQuery = format(
             `UPDATE lastfm_user SET 
                 (image, age, subscriber, playcount, playlists, bootstrap) = (%L, %L, %L, %L, %L, %L)
-                WHERE name = 'hb-robo'`,
+                WHERE name = %L`,
             userInfo.image, userInfo.age, userInfo.subscriber,
-            userInfo.playcount, userInfo.playlists, userInfo.bootstrap);
+            userInfo.playcount, userInfo.playlists, userInfo.bootstrap,
+            LASTFM_USER);
+    } 
     else {
         userInsertQuery = format(
             `INSERT INTO lastfm_user (
@@ -57,7 +63,7 @@ async function syncLastFMUserInfo() {
     
 /**
  * Regenerate album chart data from last month.
- * return {undefined}
+ * @returns {undefined}
  */
 async function syncLastFMAlbumChart() {
     const nowUnixTime = ~~(Date.now()/1000);
@@ -91,24 +97,38 @@ async function syncLastFMAlbumChart() {
                .then(() => {
                     throw error;
                 });
-        );
+        });
 }
 
 /**
  * Grab artist count data for my last.fm user.
- * return {undefined}
+ * @returns {undefined}
  */
 async function syncLastFMArtists() {}
 
 /**
- * Grab all new scrobbles since most recent scrobble in DB.
- * return {undefined}
+ * Grab all new scrobbles since most recent scrobble in DB, and adds them to the "scrobbles" table.
+ * @returns {undefined}
  */
-async function syncLastFMRecentTracks() {}
+async function syncLastFMRecentTracks() {
+    const nowUnixTime = ~~(Date.now()/1000);
+
+    const mostRecentScrobbleTime_raw = await pgdb.query(
+        `SELECT coalesce(max(date), 0) 
+        from lastfm_scrobbles;`
+        ).catch(console.error);
+    const mostRecentScrobbleTime = mostRecentScrobbleTime_raw.rows[0].max;
+
+    const recentScrobblesURL = `${LASTFM_GETRECENTTRACKS_URL}&from=${nowUnixTime}&to=${mostRecentScrobbleTime}`;
+
+
+
+
+}
 
 /**
  * Asynchronously updates all database tables sourced from the Last.FM API.
- * returns {undefined}
+ * @returns {undefined}
  */
 async function syncLastFMData() {
     await Promise.allSettled([
@@ -121,7 +141,7 @@ async function syncLastFMData() {
 
 /**
  * Asynchronously updates all data from endpoints referring to music listening and logging.
- * returns {undefined}
+ * @returns {undefined}
  */
 async function syncMusicData() {
     await Promise.allSettled([
