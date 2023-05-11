@@ -1,7 +1,7 @@
 //==================== Postgres Inports ====================
 const pgdb = require('./../pgdb');
 const format = require('pg-format');
-//==================== API Inports ====================
+//==================== API Imports ====================
 const axios = require('axios');
 
 
@@ -14,11 +14,8 @@ const LASTFM_USER = 'hb-robo';
 const LASTFM_URL_HEAD = `http://ws.audioscrobbler.com/2.0/`;
 const LASTFM_URL_FOOTER = `&user=${LASTFM_USER}&api_key=${LASTFM_API_KEY}&format=json`;
 const LASTFM_GETUSERINFO_URL = `${LASTFM_URL_HEAD}?method=user.getinfo${LASTFM_URL_FOOTER}`;
-const LASTFM_GETALBUMCHART_URL = `${LASTFM_URL_HEAD}?method=user.getweeklyalbumchart${LASTFM_URL_FOOTER}`;
+const LASTFM_GETTOPALBUMS_URL = `${LASTFM_URL_HEAD}?method=user.gettopalbums&period=1month${LASTFM_URL_FOOTER}`;
 const LASTFM_GETRECENTTRACKS_URL = `${LASTFM_URL_HEAD}?method=user.getrecenttracks&extended=1${LASTFM_URL_FOOTER}`;
-// const LASTFM_GETARTISTS_URL = `${LASTFM_URL_HEAD}?method=library.getartists&limit=10000${LASTFM_URL_FOOTER}`;
-
-
 
 
 //==================== API Endpoint Sync Functions ====================
@@ -68,33 +65,47 @@ async function syncLastFMUserInfo() {
  * Regenerate album chart data from last month.
  * @returns {undefined}
  */
-async function syncLastFMAlbumChart() {
-    const nowUnixTime = ~~(Date.now()/1000);
-    const oneMonthAgoUnixTime = nowUnixTime - (30*24*60*60); // subtracting 30 days of time
-    
-    const newAlbumChartURL = `${LASTFM_GETALBUMCHART_URL}&from${oneMonthAgoUnixTime}&to=${nowUnixTime}`;
-    const topAlbums = await axios(newAlbumChartURL)
+async function syncLastFMRecentTopAlbums() {
+    const topAlbums = await axios(LASTFM_GETTOPALBUMS_URL)
         .then( result => {
-            console.log(result.data.albums);
-            return result.data.albums;
+            console.log(result.data.topalbums.album);
+            return result.data.topalbums.album;
         }).catch(console.error);
     setTimeout(() => {}, 1000);
     
-    if (!userInfo) {
+    if (!topAlbums) {
         return;
     }
     
-    const insertAlbumChartQuery = format(`
+    /**
+     * field structure for music.lastfm_albumchart:
+        * rank[int],
+        * album_mbid[varchar], album_name[varchar], album_image_url[varchar],
+        * artist_mbid[varchar], artist_name[varchar],
+        * playcount[int]
+     */
+    var insertTopAlbumsQuery = `
         BEGIN;
         TRUNCATE lastfm_albumchart;
         INSERT INTO lastfm_albumchart
-            SELECT *
-            FROM json_populate_recordset(NULL::lastfm_albumchart, %L)
-        COMMIT;`,
-        JSON.stringify(topAlbums)
-    );
+        VALUES `;
+    for (let i = 0; i < topAlbums.length; i++) {
+        let album = topAlbums[i];
+        insertRow = format(
+            `(%L, %L, %L, %L, %L, %L)`,
+            album["@attr"].rank, album.playcount,
+            album.mbid, album.name, album.image[3]["#text"],
+            album.artist.mbid, album.artist.name
+        );
+        insertTopAlbumsQuery += insertRow;
+        if (i !== (topAlbums.length + 1)) {
+            insertTopAlbumsQuery += ', '
+        } else {
+            insertTopAlbumsQuery += '; COMMIT;';
+        }
+    }
     
-    await pgdb.query(insertAlbumChartQuery)
+    await pgdb.query(insertTopAlbumsQuery)
         .catch(error => {
             return pgdb.query('ROLLBACK')
                .then(() => {
@@ -110,7 +121,6 @@ async function syncLastFMAlbumChart() {
  */
 async function syncLastFMRecentTracks() {
     const nowUnixTime = ~~(Date.now()/1000);
-
     const mostRecentScrobbleTime_raw = await pgdb.query(
         `SELECT coalesce(max(date), 0) 
         from lastfm_scrobbles;`
@@ -120,17 +130,33 @@ async function syncLastFMRecentTracks() {
     const recentScrobblesURL = `${LASTFM_GETRECENTTRACKS_URL}&from=${mostRecentScrobbleTime+1}&to=${nowUnixTime}`;
     const recentScrobbles = await axios(recentScrobblesURL)
         .then( result => {
-            console.log(result.data.recenttracks);
-            return result.data.recenttracks;
+            console.log(result.data.recenttracks.track);
+            return result.data.recenttracks.track;
         }).catch(console.error);
     setTimeout(() => {}, 1000);
     
-    const insertRecentScrobblesQuery = format(`
-        INSERT INTO lastfm_scrobbles
-        SELECT *
-            FROM json_populate_recordset(NULL::lastfm_scrobbles, %L)`,
-        JSON.stringify(recentScrobbles)
-    );
+    /**
+     * field structure for music.lastfm_scrobbles:
+        * song_mbid[varchar], song_name[varchar],
+        * artist_mbid[varchar], artist_name[varchar], artist_image_url[varchar],
+        * album_mbid[varchar], album_name[varchar], album_image_url[varchar],
+        * time[int], loved[boolean]
+     */
+    var insertRecentScrobblesQuery = 'INSERT INTO lastfm_scrobbles VALUES ';
+    for (let i = 0; i < recentScrobbles.length; i++) {
+        let scrobble = recentScrobbles[i];
+        insertRow = format(
+            `(%L, %L, %L, %L, %L, %L, %L, %L, %L, %L)`,
+            scrobble.mbid, scrobble.name,
+            scrobble.artist.mbid, scrobble.artist.name, scrobble.artist.image[3]["#text"],
+            scrobble.album.mbid, scrobble.album["#text"], scrobble.image[3]["#text"],
+            scrobble.date.uts, scrobble.loved
+        );
+        insertRecentScrobblesQuery += insertRow;
+        if (i !== (recentScrobbles.length + 1)) {
+            insertRecentScrobblesQuery += ', '
+        }
+    }
 
     await pgdb.query(insertRecentScrobblesQuery)
         .catch(error => {
@@ -142,14 +168,6 @@ async function syncLastFMRecentTracks() {
 }
 
 
-/**
- * Grab artist count data for my last.fm user.
- * @returns {undefined}
- */
-async function syncLastFMArtists() {}
-
-
-
 //==================== Async Aggregation Functions ====================
 /**
  * Asynchronously updates all database tables sourced from the Last.FM API.
@@ -158,12 +176,10 @@ async function syncLastFMArtists() {}
 async function syncLastFMData() {
     await Promise.allSettled([
         syncLastFMUserInfo(),
-        syncLastFMAlbumChart(),
-        syncLastFMArtists(),
+        syncLastFMRecentTopAlbums(),
         syncLastFMRecentTracks()
     ]);
 }
-
 
 /**
  * Asynchronously updates all data from endpoints referring to music listening and logging.
@@ -174,7 +190,6 @@ async function syncMusicData() {
         syncLastFMData()
     ]);
 }
-
 
 
 //==================== Module Exports ====================
