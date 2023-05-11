@@ -1,9 +1,8 @@
-//==================== Postgres Inports ====================
+//==================== Postgres Imports ====================
 const pgdb = require('./../pgdb');
 const format = require('pg-format');
 //==================== API Imports ====================
 const axios = require('axios');
-
 
 
 //==================== Steam API variables ====================
