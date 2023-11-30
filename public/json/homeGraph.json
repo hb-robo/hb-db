@@ -1,0 +1,36 @@
+{
+    "nodes": [
+        { "data": { 
+            "id": "input1-education", 
+            "emoji": "😀"
+        }},
+        { "data": { "id": "input2-books" } },
+        { "data": { "id": "input3-games" } },
+        { "data": { "id": "input4-music" } },
+        { "data": { "id": "input5-film" } },
+        
+        { "data": { "id": "brain" } },
+        { "data": { "id": "about" } },
+
+        { "data": { "id": "output1-thoughts" } },
+        { "data": { "id": "output2-works" } },
+        { "data": { "id": "output3-projects" } },
+        { "data": { "id": "output4-contributions" } }
+
+    ],
+    "edges": [
+        { "data": { "id": "input-education", "source": "input1-education", "target": "brain" } },
+        { "data": { "id": "input-games", "source": "input3-games", "target": "brain" } },
+        { "data": { "id": "input-books", "source": "input2-books", "target": "brain" } },
+        { "data": { "id": "input-film", "source": "input5-film", "target": "brain" } },
+        { "data": { "id": "input-music", "source": "input4-music", "target": "brain" } },
+
+        { "data": { "id": "ab", "source": "brain", "target": "about" } },
+        { "data": { "id": "ab", "source": "about", "target": "brain" } },
+
+        { "data": { "id": "output-works", "source": "brain", "target": "output2-works" } },
+        { "data": { "id": "output-thoughts", "source": "brain", "target": "output1-thoughts" } },
+        { "data": { "id": "output-projects", "source": "brain", "target": "output3-projects" } },
+        { "data": { "id": "output-contributions", "source": "brain", "target": "output4-contributions" } }
+    ]
+}
