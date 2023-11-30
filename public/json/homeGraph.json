@@ -1,21 +1,18 @@
 {
     "nodes": [
-        { "data": { 
-            "id": "input1-education", 
-            "emoji": "😀"
-        }},
-        { "data": { "id": "input2-books" } },
-        { "data": { "id": "input3-games" } },
-        { "data": { "id": "input4-music" } },
-        { "data": { "id": "input5-film" } },
+        { "data": { "id": "input1-education", "emoji": "🎓"  }},
+        { "data": { "id": "input2-books", "emoji": "📚"  } },
+        { "data": { "id": "input3-games", "emoji": "🕹️"  } },
+        { "data": { "id": "input4-music", "emoji": "🎧"  } },
+        { "data": { "id": "input5-film", "emoji": "🎞️" } },
         
-        { "data": { "id": "brain" } },
-        { "data": { "id": "about" } },
+        { "data": { "id": "brain", "emoji": "🧠"  } },
+        { "data": { "id": "about", "emoji": "🙋"  } },
 
-        { "data": { "id": "output1-thoughts" } },
-        { "data": { "id": "output2-works" } },
-        { "data": { "id": "output3-projects" } },
-        { "data": { "id": "output4-contributions" } }
+        { "data": { "id": "output1-thoughts", "emoji": "💭"  } },
+        { "data": { "id": "output2-works", "emoji": "✍️"  } },
+        { "data": { "id": "output3-projects", "emoji": "🧑‍💻"  } },
+        { "data": { "id": "output4-contributions", "emoji": "🤝"  } }
 
     ],
     "edges": [
@@ -26,7 +23,6 @@
         { "data": { "id": "input-music", "source": "input4-music", "target": "brain" } },
 
         { "data": { "id": "ab", "source": "brain", "target": "about" } },
-        { "data": { "id": "ab", "source": "about", "target": "brain" } },
 
         { "data": { "id": "output-works", "source": "brain", "target": "output2-works" } },
         { "data": { "id": "output-thoughts", "source": "brain", "target": "output1-thoughts" } },

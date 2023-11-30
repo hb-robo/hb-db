@@ -35,27 +35,35 @@
                     {
                         selector: 'node',
                         style: {
-                            'background-color': '#666',
-                            'label': 'data(id)'
+                            'background-opacity': '0',
+                            'label': 'data(emoji)',
+                            'text-valign': 'center',
+                            'text-halign': 'center',
+                            'border-width': '1',
+                            'border-color': '#666'                  
                         }
                     },
                     {
                         selector: 'edge',
                         style: {
                             'curve-style': 'bezier',
-                            'width': 3,
-                            'line-color': '#ccc',
-                            'target-arrow-color': '#ccc',
-                            'target-arrow-shape': 'triangle'
+                            'width': 2,
+                            'line-color': '#AAA',
+                            'target-arrow-color': '#aaa',
+                            'target-arrow-shape': 'triangle',
+                            'arrow-scale': 0.75
                         }
                     }
                 ]
             });
+
+            cy.getElementById('ab').style ({'source-arrow-shape': 'triangle', 'target-arrow-shape': 'triangle', 'arrow-scale': 0.75});
+
             var layout = cy.layout({
                 name: 'preset',
                 positions: function( node ){
                     var id = node.data('id');
-                    var index, total, angle, radius = 150;
+                    var index, total, angle, radius = 100;
                     if (id.startsWith('input')) {
                         index = parseInt(id[5]);
                         total = cy.nodes('[id ^= "input"]').length;
@@ -75,12 +83,18 @@
                     } else if (id == 'brain') {
                         return { x: 0, y: 0 };
                     } else {
-                        return { x: 0, y: radius };
+                        return { x: 0, y: radius/2 };
                     }
                 },
                 fit: true // whether to fit to viewport
             });
             layout.run();
+
+            let brain = cy.getElementById('brain');
+            let brainWidth = brain.width();
+            let brainHeight = brain.height();
+            brain.renderedWidth(2 * brainWidth);
+            brain.renderedHeight(2* brainHeight);
         </script>
         <div class="footer-bottom">&copy; 2021-2023 | designed by hayden brown</div>
     </body>
