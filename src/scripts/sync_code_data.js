@@ -1,5 +1,5 @@
 //==================== Postgres Imports ====================
-const pgdb = require('./../pgdb');
+const pgdb = require('../../pgdb');
 const format = require('pg-format');
 //==================== API Imports ====================
 const axios = require('axios');
@@ -39,7 +39,7 @@ async function syncGitHubUserInfo() {
                 (company, blog, location, hireable, bio, public_repos, followers, following) = (%L, %L, %L, %L, %L, %L, %L, %L)
                 WHERE name = %L`,
             userInfo.company, userInfo.blog, userInfo.location, userInfo.hireable,
-            userInfo.bio, userInfo.public_repos, userInfo.followers, userInfo.following
+            userInfo.bio, userInfo.public_repos, userInfo.followers, userInfo.following,
             GITHUB_USER);
     } 
     else {

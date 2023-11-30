@@ -1,5 +1,5 @@
 //  POSTGRES TOOLS
-const pgdb = require('./../pgdb');
+const pgdb = require('../../pgdb');
 const format = require('pg-format');
 //  API TOOLS
 const axios = require('axios');
