@@ -1,6 +1,7 @@
 // import modules
 import express from 'express';
 import sqlite3 from 'sqlite3';
+import * as path from 'path';
 
 // import routes
 import homeRouter from './routes/home';
@@ -11,6 +12,9 @@ import musicRouter from './routes/thoughts/music';
 // initializing app
 const app = express();
 const PORT = process.env.PORT || 3000;
+app.set('views', path.join(__dirname,'../views'));
+app.set('view engine', 'ejs');
+
 
 // set up middleware
 
