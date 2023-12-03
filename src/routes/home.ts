@@ -17,7 +17,7 @@ router.get('/', (req: Request, res: Response) => {
                 return res.sendStatus(500);
             }
             const homeGraph = JSON.parse(data);
-            res.render('index', { homeGraph });
+            res.render('home');
         }
     );   
 

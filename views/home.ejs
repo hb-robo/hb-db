@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html prefix="og: https://ogp.me/ns#">
+	<head>
+		<title>hayden's stuff</title>
+		<meta name="description" content="writing, programming, design, etc." />
+		<meta charset="utf-8" />
+		<meta name="robots" content="index, follow" />
+		<link rel="canonical" href="https://www.haydenbrown.dev" />
+        <link rel="stylesheet" href="/css/output.css">
+        <script src="/js/leader-line.min.js"></script>
+        
+	</head>
+    <body>
+        <div id="home" class="flex flex-col min-h-screen w-9/10">
+            <header class="h-10 bg-red-500"></header>
+            <main class="my-auto bg-green-500 grid grid-cols-5 gap-4 items-center justify-center">
+                <div class="col-span-1"></div>
+                <div class="col-span-1">
+                    <ul class="input-nodes flex flex-col items-center justify-center">/input
+                        <li id="education" class="input">🎓</li>
+                        <li id="games" class="input">🕹️</li>
+                        <li id="books" class="input">📚</li>
+                        <li id="music" class="input">🎧</li>
+                        <li id="films" class="input">🎞️</li>
+                    </ul>
+                </div>
+                <div class="flex flex-col items-center justify-center space-y-24 col-span-1">
+                    <div id="brain" class="flex mb-auto h-10 items-center justify-center">🧠</div>
+                    <div id="about" class="justify-center">🙋</div>
+                </div>
+                <div class="col-span-1">
+                    <ul class="output-nodes flex flex-col items-center justify-center">/output
+                        <li id="code" class="output">🧑‍💻</li>
+                        <li id="contributions" class="output">🤝</li>
+                        <li id="thoughts" class="output">💭</li>
+                        <li id="works" class="output">✍️</li>
+                    </ul>
+                </div>
+                <div class="col-span-1"></div>
+            </main>
+            <footer class="h-10 bg-blue-500">&copy; 2021-2023 | designed by hayden brown</footer>
+        </div>
+        <script>
+            // let inputNodes = document.querySelectorAll('.input');
+            // let container = document.querySelector('#brain');
+            
+            // // Get the position of the #brain div
+            // let rect = container.getBoundingClientRect();
+            // let centerX = rect.left + rect.width / 2;
+            // let centerY = rect.top + rect.height / 2;
+            
+            // let radius = Math.min(window.innerWidth, window.innerHeight) / 5;
+            // let angleStep = (2 * Math.PI / 3) / (inputNodes.length + 1);
+
+            // inputNodes.forEach((item, i) => {
+            //     let angle = 3 * Math.PI / 2 - angleStep * (i+1);
+            //     let x = centerX + radius * Math.cos(angle);
+            //     let y = centerY + radius * Math.sin(angle);
+            //     item.style.transform = `translate(${x}px, ${y}px)`;
+            // });
+
+            // let outputNodes = document.querySelectorAll('.output');
+            // container = document.querySelector('#brain');
+            // radius = Math.min(window.innerWidth, window.innerHeight) / 10;
+            // angleStep = (2 * Math.PI / 3) / (outputNodes.length + 1);
+
+            // outputNodes.forEach((item, i) => {
+            //     let angle = -Math.PI / 2 + angleStep * (i+1);
+            //     let x = centerX + radius * Math.cos(angle);
+            //     let y = centerY + radius * Math.sin(angle);
+            //     item.style.transform = `translate(${x}px, ${y}px)`;
+            // });
+
+
+            var input = document.getElementsByClassName('input');
+            var output = document.getElementsByClassName('output');
+            var brain = document.getElementById('brain');
+            var about = document.getElementById('about');
+
+            lines = {inputLines: {}, outputLines: {}}
+            for(let i=0; i < input.length; i++) {
+                let line = new LeaderLine(input[i], brain);
+                lines.inputLines[input[i].id] = line
+            }
+            for(let i=0; i < output.length; i++) {
+                let line = new LeaderLine(brain, output[i]);
+                lines.outputLines[output[i].id] = line
+            }
+            new LeaderLine(brain, about, {startPlug: 'arrow3', engPlug: 'arrow3'});
+
+            input.addEventListener('mouseover', function() {
+                let id = this.id;
+                lines.inputLines[id].dash.animation = true;
+            })
+            input.addEventListener('mouseout', function() {
+                let id = this.id;
+                delete lines.inputLines[id].dash;
+            })
+            output.addEventListener('mouseover', function() {
+                let id = this.id;
+                lines.outputLines[id].dash.animation = true;
+            })
+            output.addEventListener('mouseout', function() {
+                let id = this.id;
+                delete lines.outputLines[id].dash;
+            })
+        </script>
+    </body>
+</html>
