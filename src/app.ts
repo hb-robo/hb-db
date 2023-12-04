@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 // import modules
 import express from 'express';
 import sqlite3 from 'sqlite3';
@@ -15,6 +17,7 @@ const PORT = process.env.PORT || 3000;
 app.set('views', path.join(__dirname,'../views'));
 app.use(express.static(path.join(__dirname, '../public')));
 app.set('view engine', 'ejs');
+
 
 
 // set up middleware
