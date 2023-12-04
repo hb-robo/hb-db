@@ -41,14 +41,14 @@
                     <div class="flex flex-col justify-between items-center h-1/2">
                         <div class="text-7xl">
                             <h2 class="font-mono text-2xl">/about</h2>
-                            <p id="about2" class=" line-node mb-4 justify-center text-7xl leading-[6rem] aspect-square rounded-full">🙋</p>
+                            <p id="about" class=" line-node mb-4 justify-center text-7xl leading-[6rem] aspect-square rounded-full">🙋</p>
                         </div>
                         <div class="text-9xl aspect-square justify-center items-center">
                             <p id="brain" class=" justify-center text-9xlleading-[10rem] aspect-square rounded-full">🧠</p>
                         </div>
                         <div class="text-7xl">
-                            <p id="about" class="line-node mb-4 justify-center text-7xl leading-[6rem] aspect-square rounded-full">🙋</p>
-                            <h2 class="font-mono text-2xl">/about</h2>
+                            <p id="random" class="line-node mb-4 justify-center text-7xl leading-[6rem] aspect-square rounded-full">❔</p>
+                            <h2 class="font-mono text-2xl">/random</h2>
                         </div>
                     </div>
                 </div>
@@ -71,8 +71,8 @@
             var input = document.getElementsByClassName('input');
             var output = document.getElementsByClassName('output');
             var brain = document.getElementById('brain');
+            var random = document.getElementById('random');
             var about = document.getElementById('about');
-            var about2 = document.getElementById('about2');
 
             lines = {}
             for(let i=0; i < input.length; i++) {
@@ -88,8 +88,7 @@
                 let line = new LeaderLine(brain, output[i], {color: 'gray', startSocket:'right', endSocket:'left', endPlug: 'arrow1'});
                 lines[output[i].id] = line;
             }
-            lines.about = new LeaderLine(brain, about, {color: 'gray', startSocket:'bottom', endSocket:'top', startPlug: 'arrow1', endPlug: 'arrow1'});
-            lines.about2 = new LeaderLine(brain, about2, {color: 'gray', startSocket:'top', endSocket:'bottom', startPlug: 'arrow1', endPlug: 'arrow1'});
+            lines.about = new LeaderLine(brain, about, {color: 'gray', startSocket:'top', endSocket:'bottom', startPlug: 'arrow1', endPlug: 'arrow1'});
 
             // apply dashing line animation on emoji hover
             var nodes = document.getElementsByClassName('line-node');
