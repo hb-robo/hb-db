@@ -8,19 +8,50 @@ import fs from 'fs';
 const router = express.Router();
 
 router.get('/', (req: Request, res: Response) => {
-
-    fs.readFile(
-        path.join(__dirname, '../../public/json/homeGraph.json'), 'utf8', 
-        (err, data) => {
-            if (err) {
-                console.error(err);
-                return res.sendStatus(500);
-            }
-            const homeGraph = JSON.parse(data);
-            res.render('home');
-        }
-    );   
-
+    res.render('home');
 })
+router.get('/about', (req: Request, res: Response) => {
+    res.render('input/education');
+})
+
+// protecting these routes from 404s
+router.get('/input', (req: Request, res: Response) => {
+    res.redirect('/home');
+})
+router.get('/output', (req: Request, res: Response) => {
+    res.redirect('/home');
+})
+
+
+router.get('/input/education', (req: Request, res: Response) => {
+    res.render('input/education');
+})
+router.get('/input/games', (req: Request, res: Response) => {
+    res.render('input/games');
+})
+router.get('/input/books', (req: Request, res: Response) => {
+    res.render('input/books');
+})
+router.get('/input/music', (req: Request, res: Response) => {
+    res.render('input/music');
+})
+router.get('/input/films', (req: Request, res: Response) => {
+    res.render('input/films');
+})
+
+
+router.get('/output/projects', (req: Request, res: Response) => {
+    res.render('output/projects');
+})
+router.get('/output/contributions', (req: Request, res: Response) => {
+    res.render('output/contributions');
+})
+router.get('/output/thoughts', (req: Request, res: Response) => {
+    res.render('output/thoughts');
+})
+router.get('/output/works', (req: Request, res: Response) => {
+    res.render('output/works');
+})
+
 
 export default router;
