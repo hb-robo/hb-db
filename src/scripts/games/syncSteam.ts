@@ -36,18 +36,22 @@ const STEAM_GETAPPDETAILS_URL = `` +
 
 
 
-//==================== Steam API interfaces ====================
+//==================== Steam API response interfaces ====================
 // Returned from /getOwnedGames
 interface SteamGame {
-    // guaranteed
     appid: number;
-    playtime_forever: number; // rounded number of hours played
+    name: string;
+    playtime_forever: number; // rounded number of minutes played
+    img_icon_url: string;
+    playtime_windows_forever: number;
+    playtime_mac_forever: number;
+    playtime_linux_forever: number;
+    rtime_last_played: number; // Unix time of last time game opened
     // optional
-    name?: string;
-    playtime_2weeks?: number;
-    img_icon_url?: String; // 
+    playtime_2weeks?: number; // if played in last two weeks, number of minutes played
     content_descriptorids?: number[];
     has_community_visible_stats?: boolean;
+    has_leaderboards?: boolean;
 }
 interface SteamOwnedGames {
     response?: {
@@ -202,7 +206,6 @@ interface SteamAppDetails {
 }
 
 
-
 // Idealized merged components for local storage
 interface LocalSteamGameAchievement {
     name: string; // from /GetSchemaForGame
@@ -226,6 +229,7 @@ interface LocalSteamGameSchema {
     has_community_visible_stats?: boolean; // from /GetOwnedGames
     achievements?: LocalSteamGameAchievement[];
 }
+
 
 /**
  * Grab user's game library from Steam API.
