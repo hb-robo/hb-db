@@ -261,11 +261,11 @@ async function getSteamOwnedGames(): Promise<SteamOwnedGames> {
 
 
 /**
- * Grab a game's full achievement schema from Steam API.
- * @param steamGameID - string
+ * Grab a game's full achievement and tracked statistics schema from Steam API.
+ * @param steamGameID - number
  * @returns SteamGameSchema for one given game
  */
-async function getSteamGameSchema(steamGameID: string): Promise<SteamGameSchema> {
+async function getSteamGameSchema(steamGameID: number): Promise<SteamGameSchema> {
     process.stdout.write('\t\t\t|-- Grabbing game schema... ');
     var startTime = performance.now();
     try {
@@ -284,6 +284,96 @@ async function getSteamGameSchema(steamGameID: string): Promise<SteamGameSchema>
         await delay(1000);
     }
 }
+
+
+/**
+ * Grab my unlocked achievements from Steam API for a given game.
+ * @param steamGameID - number
+ * @returns SteamGamePlayerAchievements object for one given game
+ */
+async function getSteamGamePlayerAchievements(steamGameID: number): Promise<SteamGamePlayerAchievements> {
+    process.stdout.write('\t\t\t|-- Grabbing unlocked achievements... ');
+    var startTime = performance.now();
+    try {
+        const unlockedAchievements : any = await axios(`${STEAM_GETPLAYERACHIEVEMENTS_URL}${steamGameID}`);
+        let endTime = performance.now();
+        process.stdout.write(`done (${(endTime - startTime)/1000} sec)\n`);
+        return unlockedAchievements.data;
+    }
+    catch(error: any) {
+        let endTime = performance.now();
+        process.stdout.write(`failed (${(endTime - startTime)/1000} sec)\n`);
+        // console.error(error.message);
+        throw error;
+    }
+    finally {
+        await delay(1000);
+    }
+}
+
+
+/**
+ * Grab the global unlock rates for one game's achievements from Steam API.
+ * @param steamGameID - number
+ * @returns SteamGameGlobalAchievementPercentages for one given game
+ */
+async function getSteamGameGlobalAchievementPercentages(steamGameID: number): Promise<SteamGameGlobalAchievementPercentages> {
+    process.stdout.write('\t\t\t|-- Grabbing achievement global unlock rates... ');
+    var startTime = performance.now();
+    try {
+        const globalUnlockRates : any = await axios(`${STEAM_GETGLOBALACHIEVEMENTRATES_URL}${steamGameID}`);
+        let endTime = performance.now();
+        process.stdout.write(`done (${(endTime - startTime)/1000} sec)\n`);
+        return globalUnlockRates.data;
+    }
+    catch(error: any) {
+        let endTime = performance.now();
+        process.stdout.write(`failed (${(endTime - startTime)/1000} sec)\n`);
+        // console.error(error.message);
+        throw error;
+    }
+    finally {
+        await delay(1000);
+    }
+}
+
+
+/**
+ * Grabs all data for one game from the Steam API and updates local DB entries.
+ * @param steamGameID - number
+ * @param steamGameName - string
+ * @returns SteamGameGlobalAchievementPercentages for one given game
+ */
+async function updateSteamGameData(steamGameID: number, steamGameName: string): Promise<void> {
+    process.stdout.write(`\t\t|-- Grabbing data for ${steamGameID}: ${steamGameName}...\n`);
+    var startTime = performance.now();
+    try {
+        const gameSchema: SteamGameSchema = await getSteamGameSchema(steamGameID);
+        if(gameSchema.game){
+            // console.log(gameSchema);
+            if(Object.keys(gameSchema.game).length > 0){
+                const unlockedAchievements: SteamGamePlayerAchievements = await getSteamGamePlayerAchievements(steamGameID);
+                // if(unlockedAchievements.playerstats.achievements){
+                //     console.log(unlockedAchievements.playerstats.achievements);
+                // }
+        
+                const globalUnlockRates: SteamGameGlobalAchievementPercentages = await getSteamGameGlobalAchievementPercentages(steamGameID);
+                // if(globalUnlockRates.achievementpercentages.achievements){
+                //     console.log(globalUnlockRates.achievementpercentages.achievements);
+                // }
+            }
+        }
+        // let endTime = performance.now();
+        // process.stdout.write(`done (${(endTime - startTime)/1000} sec)\n`);
+    }
+    catch(error: any) {
+        // let endTime = performance.now();
+        // process.stdout.write(`failed (${(endTime - startTime)/1000} sec)\n`);
+        throw error;
+    }
+}
+
+
 
 /**
  * A long function filled with meaningless and old code from when I was trying to compress this into relational data.
@@ -435,16 +525,16 @@ async function syncSteamData(): Promise<void> {
     var startTime = performance.now();
     try {
         const apiSteamOwnedGames: SteamOwnedGames = await getSteamOwnedGames();
-        // console.log(apiSteamOwnedGames);
-
-        // const localSteamOwnedGames: SteamOwnedGames = fs.readFileSync('../../../public/json/steamOwnedGames.json')
-
-        const gameSchema: SteamGameSchema = await getSteamGameSchema('2357570');
-        if(gameSchema.game.availableGameStats){
-            console.log(gameSchema.game);
+        if(apiSteamOwnedGames.response) {
+            let games: SteamGame[] = apiSteamOwnedGames.response.games
+            if(apiSteamOwnedGames.response.games) {
+                for(let i: number = 0; i < apiSteamOwnedGames.response.games.length; i++){
+                    // console.log(games[i]);
+                    await updateSteamGameData(games[i].appid, games[i].name);
+                }
+            }
         }
-
-
+        // const localSteamOwnedGames: SteamOwnedGames = fs.readFileSync('../../../public/json/steamOwnedGames.json')
         let endTime = performance.now();
         process.stdout.write(`|-- Finished syncing Steam data (${(endTime - startTime)/1000} sec)\n`);
     }
