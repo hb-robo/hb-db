@@ -1,11 +1,10 @@
 import dotenv from 'dotenv';
 dotenv.config();
-//dotenv.config({path: '../../../.env'});
 
 import format from 'pg-format';
+import pgdb from '../../pgdb';
 import axios from 'axios';
 import fs from 'fs';
-import pgdb from '../../pgdb';
 import { delay } from '../../utils';
 
 //==================== Steam API constants ====================
@@ -223,14 +222,18 @@ interface LocalSteamGameAchievement {
     unlocktime: number; // from /GetPlayerAchievements
 }
 interface LocalSteamGameSchema {
-    appid: string; // from /GetOwnedGames
-    playtime_forever: number; // from /GetOwnedGames
-    name?: string; // from /GetOwnedGames
+    appid: number; // from /GetOwnedGames
+    name: string; // from /GetOwnedGames
+    rtime_last_played: number; // from /GetOwnedGames
+    playtime_forever?: number; // from /GetOwnedGames
     playtime_2weeks?: number; // from /GetOwnedGames
     img_icon_url?: string; // from /GetOwnedGames
     content_descriptorids?: number[]; // from /GetOwnedGames
     has_community_visible_stats?: boolean; // from /GetOwnedGames
-    achievements?: LocalSteamGameAchievement[];
+    schema?: {
+        gameVersion?: number; // string of integer, incremented with each update
+        achievements?: LocalSteamGameAchievement[];
+    }
 }
 
 
@@ -344,7 +347,7 @@ async function getSteamGameGlobalAchievementPercentages(steamGameID: number): Pr
  * @param steamGameName - string
  * @returns SteamGameGlobalAchievementPercentages for one given game
  */
-async function updateSteamGameData(steamGameID: number, steamGameName: string): Promise<void> {
+async function getSteamGameData(steamGameID: number, steamGameName: string): Promise<void> {
     process.stdout.write(`\t\t|-- Grabbing data for ${steamGameID}: ${steamGameName}...\n`);
     var startTime = performance.now();
     try {
@@ -526,15 +529,38 @@ async function syncSteamData(): Promise<void> {
     try {
         const apiSteamOwnedGames: SteamOwnedGames = await getSteamOwnedGames();
         if(apiSteamOwnedGames.response) {
-            let games: SteamGame[] = apiSteamOwnedGames.response.games
+            var games: SteamGame[] = apiSteamOwnedGames.response.games
+            var localGameData: LocalSteamGameSchema[] = [];
             if(apiSteamOwnedGames.response.games) {
                 for(let i: number = 0; i < apiSteamOwnedGames.response.games.length; i++){
-                    // console.log(games[i]);
-                    await updateSteamGameData(games[i].appid, games[i].name);
+                    let localGameSchema: LocalSteamGameSchema = {
+                        appid:                       games[i].appid,
+                        name:                        games[i].name,
+                        rtime_last_played:           games[i].rtime_last_played,
+                        playtime_forever:            games[i].playtime_forever,
+                        playtime_2weeks:             games[i].playtime_2weeks,
+                        img_icon_url:                games[i].img_icon_url,
+                        content_descriptorids:       games[i].content_descriptorids,
+                        has_community_visible_stats: games[i].has_community_visible_stats,
+                    }
+
+                    /**
+                     * @todo refactor so that gameSchema returns LocalGameSchema or null
+                     * until this is done, no data will ever be appended
+                     */
+                    let gameSchema : any = await getSteamGameData(games[i].appid, games[i].name);
+                    if(gameSchema) localGameSchema.schema = gameSchema;
+
+                    localGameData.push(localGameSchema);
                 }
             }
+            let steamData = JSON.stringify(localGameData, null, 4);
+
+            fs.writeFile('./public/json/steamData.json', steamData, (err : NodeJS.ErrnoException | null) => {
+                if (err) throw err;
+                console.log('Steam Data failed to write to /public/json/steamData.json: ', err);          
+            });
         }
-        // const localSteamOwnedGames: SteamOwnedGames = fs.readFileSync('../../../public/json/steamOwnedGames.json')
         let endTime = performance.now();
         process.stdout.write(`|-- Finished syncing Steam data (${(endTime - startTime)/1000} sec)\n`);
     }
